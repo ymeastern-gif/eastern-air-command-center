@@ -71,6 +71,31 @@ export function createDataApi(client, workspaceId) {
     return client.from('item_watchers').delete().eq('item_id',itemId).eq('user_id',userId);
   }
 
+  async function setItemTags(itemId, names=[]) {
+    const cleaned=[...new Set(names.map(x=>String(x).trim().replace(/^#/, '')).filter(Boolean))];
+    const wanted=[];
+    for (const name of cleaned) {
+      let {data:tag,error}=await client.from('tags').select('*').eq('workspace_id',workspaceId).ilike('name',name).maybeSingle();
+      if (error) return {error};
+      if (!tag) {
+        const created=await client.from('tags').insert({workspace_id:workspaceId,name}).select().single();
+        if (created.error) return {error:created.error};
+        tag=created.data;
+      }
+      wanted.push(tag.id);
+    }
+    const existing=await client.from('item_tags').select('*').eq('item_id',itemId);
+    if (existing.error) return {error:existing.error};
+    const existingIds=new Set((existing.data??[]).map(x=>x.tag_id)), wantedSet=new Set(wanted);
+    for (const row of existing.data??[]) if (!wantedSet.has(row.tag_id)) {
+      const del=await client.from('item_tags').delete().eq('item_id',itemId).eq('tag_id',row.tag_id);if(del.error)return {error:del.error};
+    }
+    for (const tagId of wanted) if (!existingIds.has(tagId)) {
+      const ins=await client.from('item_tags').insert({item_id:itemId,tag_id:tagId});if(ins.error)return {error:ins.error};
+    }
+    return {data:wanted,error:null};
+  }
+
   async function savePersonalPreference(itemId, userId, patch) {
     const {data:old}=await client.from('user_item_preferences').select('*').eq('item_id',itemId).eq('user_id',userId).maybeSingle();
     const row={...(old??{}),user_id:userId,item_id:itemId,...patch,updated_at:new Date().toISOString()};
@@ -112,5 +137,5 @@ export function createDataApi(client, workspaceId) {
     return {data:item,error:null};
   }
 
-  return {loadWorkspace,getMembership,saveManagement,assignItem,clearAssignment,setWatching,savePersonalPreference,loadItemDetail,addComment,saveUserSettings,createSavedView,deleteSavedView,createCommandItem};
+  return {loadWorkspace,getMembership,saveManagement,assignItem,clearAssignment,setWatching,setItemTags,savePersonalPreference,loadItemDetail,addComment,saveUserSettings,createSavedView,deleteSavedView,createCommandItem};
 }
