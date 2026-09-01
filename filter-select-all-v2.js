@@ -2,6 +2,12 @@
   function allBoxes(root){return [...root.querySelectorAll('input[type="checkbox"]')].filter(x=>!x.disabled)}
   function setAll(root,value){allBoxes(root).forEach(x=>{x.checked=value;x.dispatchEvent(new Event('change',{bubbles:true}))})}
   function button(text,primary=false){const b=document.createElement('button');b.type='button';b.className='btn small'+(primary?' primary':'');b.textContent=text;return b}
+  function normalizeFullySelected(modal){
+    modal.querySelectorAll('.filterGroup').forEach(group=>{
+      const boxes=[...group.querySelectorAll('input[data-filter]')].filter(x=>!x.disabled);
+      if(boxes.length&&boxes.every(x=>x.checked)) boxes.forEach(x=>{x.checked=false});
+    });
+  }
   function enhance(){
     const modal=document.querySelector('#modal');
     if(!modal)return;
@@ -36,8 +42,9 @@
     });
   }
   document.addEventListener('click',e=>{
-    const b=e.target.closest('#openFilters,.filterBtn');
-    if(!b)return;
-    setTimeout(enhance,0);setTimeout(enhance,60);setTimeout(enhance,180);
+    const open=e.target.closest('#openFilters,.filterBtn');
+    if(open){setTimeout(enhance,0);setTimeout(enhance,60);setTimeout(enhance,180);return;}
+    const apply=e.target.closest('#applyFilters,#setDefault');
+    if(apply){const modal=document.querySelector('#modal');if(modal)normalizeFullySelected(modal);}
   },true);
 })();
