@@ -1,13 +1,13 @@
-name: V3 CI
+name: Command Center CI
 
 on:
   push:
-    branches: [rebuild-command-center]
+    branches: [rebuild-command-center, brain-v4]
   pull_request:
     branches: [main]
 
 jobs:
-  v3-checks:
+  command-center-checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +30,10 @@ jobs:
         run: node tests/model.test.mjs
       - name: Intelligence model tests
         run: node tests/intelligence-model.test.mjs
+      - name: Brain search tests
+        run: node tests/brain-search.test.mjs
+      - name: Project structure tests
+        run: node tests/project-structure.test.mjs
       - name: Selector and schedule tests
         run: node tests/selectors-schedule.test.mjs
       - name: Saved view tests
