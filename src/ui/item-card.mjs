@@ -1,0 +1,8 @@
+import { esc, fmtDate, human } from './dom.mjs';
+import { sourceBadge } from './source-panel.mjs';
+
+export function itemCard(record,{showProject=true}={}) {
+  const due=record.due?`<span class="dateChip ${record.due<new Date().toLocaleDateString('en-CA')?'overdue':''}">Due ${esc(fmtDate(record.due))}</span>`:'';
+  const follow=record.followUp?`<span class="dateChip">Follow ${esc(fmtDate(record.followUp))}</span>`:'';
+  return `<article class="workCard" data-item-id="${esc(record.id)}"><div class="workCardHead"><div class="workTitle">${esc(record.title)}</div><div class="attentionBadge ${esc(record.attentionState)}">${esc(human(record.attentionState))}</div></div><div class="chipRow">${showProject&&record.projectName?`<span class="contextChip">${esc(record.projectName)}</span>`:''}${record.categoryName?`<span class="contextChip">${esc(record.categoryName)}</span>`:''}${record.floor?`<span class="contextChip">${esc(record.floor)}</span>`:''}${record.system?`<span class="contextChip">${esc(record.system)}</span>`:''}<span class="priorityChip ${esc(record.priority)}">${esc(human(record.priority))}</span><span class="ownerChip">${esc(record.ownerName||'Unassigned')}</span>${record.primarySource?sourceBadge(record.primarySource,{compact:true}):''}</div><div class="workCardDates">${due}${follow}${record.waitingOn?`<span class="waitingChip">Waiting: ${esc(record.waitingOn)}</span>`:''}</div><div class="workCardActions"><button class="btn small primary" data-manage-item="${esc(record.id)}">Manage</button>${record.primarySource?.resolvedUrl?`<a class="btn small secondary" href="${esc(record.primarySource.resolvedUrl)}" target="_blank" rel="noopener noreferrer">Open Original</a>`:''}</div></article>`;
+}
