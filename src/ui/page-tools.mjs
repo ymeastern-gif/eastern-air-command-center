@@ -23,14 +23,10 @@ export function lookupsFor(state){
 function emptyView(){return {filters:{search:'',include:{},exclude:{},date:{}},sort:null,groupBy:null,dateWindow:null,display:null};}
 
 export function currentView(state){return state.viewState??emptyView()}
-
 export function pageUniverse(state,page){return page==='calendar'?state.scheduleUniverse:state.universe}
-
 export function filteredForPage(records,state){return filterRecords(records,currentView(state).filters,pageUniverse(state,state.page))}
 
-function visibleViews(state,page){
-  return (state.raw.savedViews??[]).map(v=>parseSavedView(v,pageUniverse(state,page))).filter(v=>viewVisibleInScope(v,{page,projectScope:state.projectScope}));
-}
+function visibleViews(state,page){return (state.raw.savedViews??[]).map(v=>parseSavedView(v,pageUniverse(state,page))).filter(v=>viewVisibleInScope(v,{page,projectScope:state.projectScope}));}
 
 export function renderToolbar(state,{page=state.page,placeholder='Search…',dimensions=WORK_FILTER_DIMS,showSave=true}={}){
   const view=currentView(state),count=activeRestrictionCount(view.filters,pageUniverse(state,page)),views=visibleViews(state,page);
@@ -39,7 +35,12 @@ export function renderToolbar(state,{page=state.page,placeholder='Search…',dim
 
 export function wireToolbar({root,state,store,api,page=state.page,dimensions=WORK_FILTER_DIMS,onChange,showSave=true,builtInDefault={}}){
   const universe=pageUniverse(state,page),lookups=lookupsFor(state);
-  const search=qs('[data-global-search]',root); if(search) search.addEventListener('input',()=>{const v=structuredClone(currentView(store.get()));v.filters.search=search.value;store.set({viewState:v});onChange?.()});
+  const search=qs('[data-global-search]',root);
+  if(search){
+    const commitSearch=()=>{const v=structuredClone(currentView(store.get()));if(v.filters.search===search.value)return;v.filters.search=search.value;store.set({viewState:v});onChange?.()};
+    search.addEventListener('change',commitSearch);
+    search.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitSearch();}});
+  }
   qs('[data-clear-view]',root)?.addEventListener('click',()=>{store.set({viewState:emptyView()});onChange?.()});
   qsa('[data-view-id]',root).forEach(btn=>btn.addEventListener('click',()=>{const row=store.get().raw.savedViews.find(v=>v.id===btn.dataset.viewId);if(!row)return;const parsed=parseSavedView(row,universe);store.set({viewState:parsed.state,projectScope:parsed.projectScope==='all'?store.get().projectScope:parsed.projectScope});onChange?.()}));
   qs('[data-open-filters]',root)?.addEventListener('click',()=>openFilterPanel({state:currentView(store.get()).filters,universe,dimensions,lookups,title:'Filters',scopeLabel:store.get().projectScope==='all'?'All Jobs':lookups.project[store.get().projectScope]||store.get().projectScope,onApply:draft=>{const v=structuredClone(currentView(store.get()));v.filters=draft;store.set({viewState:v});onChange?.()},onSetDefault:async draft=>{const s=store.get();const v=structuredClone(currentView(s));v.filters=draft;const next=setDefaultView({settings:s.raw.userPreferences?.settings??{},page,projectScope:s.projectScope,viewState:v,universe});const r=await api.saveUserSettings(s.user.id,next);if(r.error)return toast(r.error.message,{bad:true});s.raw.userPreferences=r.data;toast('Default view saved');},onSaveView:draft=>openSaveView({state:store.get(),api,page,universe,draft,onDone:onChange}),onResetDefault:async()=>resolveDefaultView({settings:store.get().raw.userPreferences?.settings??{},page,projectScope:store.get().projectScope,builtIn:builtInDefault,universe}).filters}));
@@ -51,6 +52,4 @@ function openSaveView({state,api,page,universe,draft,onDone}){
   qs('#svSave',panel).addEventListener('click',async()=>{const name=qs('#svName',panel).value.trim();if(!name)return toast('Give the view a name',{bad:true});const viewState={...currentView(state),filters:draft};const payload=savedViewPayload({name,page,projectScope:state.projectScope,viewState,isShared:qs('#svShared',panel).checked,universe});const r=await api.createSavedView(state.user.id,payload);if(r.error)return toast(r.error.message,{bad:true});toast('View saved');closeModal();await onDone?.();});
 }
 
-export function restorePageDefault(state,page,builtIn={}){
-  return resolveDefaultView({settings:state.raw.userPreferences?.settings??{},page,projectScope:state.projectScope,builtIn,universe:pageUniverse(state,page)});
-}
+export function restorePageDefault(state,page,builtIn={}){return resolveDefaultView({settings:state.raw.userPreferences?.settings??{},page,projectScope:state.projectScope,builtIn,universe:pageUniverse(state,page)});}
