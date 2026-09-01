@@ -41,10 +41,11 @@ export function createDataApi(client, workspaceId) {
       safe('taxonomyRules', client.from('project_taxonomy_rules').select('*').eq('workspace_id',workspaceId).eq('active',true).order('sort_order')),
       safe('seenState', client.from('user_seen_state').select('*').eq('workspace_id',workspaceId).eq('user_id',userId)),
       safe('syncRuns', client.from('sync_runs').select('*').eq('workspace_id',workspaceId).order('started_at',{ascending:false}).limit(100)),
+      safe('procurementItems', client.from('procurement_items').select('*').eq('workspace_id',workspaceId).order('project_id').order('expected_on',{ascending:true,nullsFirst:false})),
     ]);
 
     const raw = {
-      projects:[],categories:[],people:[],items:[],management:[],assignments:[],watchers:[],userItemPreferences:[],itemSources:[],sourceRecords:[],tags:[],itemTags:[],scheduleMilestones:[],activityEvents:[],savedViews:[],userPreferences:null,profiles:[],members:[],notifications:[],sourceEntities:[],entityAliases:[],topics:[],topicSources:[],commitments:[],actionSuggestions:[],sourceDeltas:[],sourceConfigs:[],taxonomyRules:[],seenState:[],syncRuns:[],
+      projects:[],categories:[],people:[],items:[],management:[],assignments:[],watchers:[],userItemPreferences:[],itemSources:[],sourceRecords:[],tags:[],itemTags:[],scheduleMilestones:[],activityEvents:[],savedViews:[],userPreferences:null,profiles:[],members:[],notifications:[],sourceEntities:[],entityAliases:[],topics:[],topicSources:[],commitments:[],actionSuggestions:[],sourceDeltas:[],sourceConfigs:[],taxonomyRules:[],seenState:[],syncRuns:[],procurementItems:[],
     };
     const errors=[];
     for (const q of queries) {
