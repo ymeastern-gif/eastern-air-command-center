@@ -28,6 +28,8 @@ jobs:
         run: node tests/source-links.test.mjs
       - name: Canonical model tests
         run: node tests/model.test.mjs
+      - name: Intelligence model tests
+        run: node tests/intelligence-model.test.mjs
       - name: Selector and schedule tests
         run: node tests/selectors-schedule.test.mjs
       - name: Saved view tests
