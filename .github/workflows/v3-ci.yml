@@ -1,0 +1,34 @@
+name: V3 CI
+
+on:
+  push:
+    branches: [rebuild-command-center]
+  pull_request:
+    branches: [main]
+
+jobs:
+  v3-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check modules
+        run: |
+          find src tests -name '*.mjs' -print0 | while IFS= read -r -d '' f; do
+            echo "Checking $f"
+            node --check "$f"
+          done
+      - name: Filter engine tests
+        run: node tests/filter-engine.test.mjs
+      - name: Attention engine tests
+        run: node tests/attention-engine.test.mjs
+      - name: Source link tests
+        run: node tests/source-links.test.mjs
+      - name: Canonical model tests
+        run: node tests/model.test.mjs
+      - name: Selector and schedule tests
+        run: node tests/selectors-schedule.test.mjs
+      - name: Saved view tests
+        run: node tests/view-engine.test.mjs
