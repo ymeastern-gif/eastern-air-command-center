@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { buildIntelligenceRecords } from '../src/core/intelligence-model.mjs';
+import { buildUniverse, filterRecords, MISSING, normalizeFilterState } from '../src/core/filter-engine.mjs';
+const raw={projects:[{id:'p',name:'Job'}],people:[{id:'y',name:'Yosef',email:'ym.eastern@gmail.com',linked_user_id:'u1'},{id:'d',name:'Dan Kovacs',email:'dan@easternaircorp.com',linked_user_id:null}],itemSources:[],sourceRecords:[{id:'a1',project_id:'p',source_system:'asana',source_ref:'1212345678901234',source_url:null,title:'Write up reply',body:'Reply to engineer',is_historical:false,raw:{assignee:'Yosef',assignee_email:'ym.eastern@gmail.com',section:'Follow Up'},source_updated_at:'2026-09-01T12:00:00Z'},{id:'g1',project_id:'p',source_system:'gmail',source_ref:'gmail:x',source_url:'https://mail.google.com/mail/#all/x',title:'Vendor reply',body:'Lead time changed',is_historical:false,raw:{},source_updated_at:'2026-09-01T13:00:00Z'}]};
+const rows=buildIntelligenceRecords(raw,'u1');
+assert.equal(rows.length,2);assert.equal(rows[0].assignedToCurrentUser,true);assert.equal(rows[0].owner,'y');assert.equal(rows[0].primarySource.badge,'ASANA');
+const universe=buildUniverse(rows,{owner:['y','d',MISSING.owner],source:['asana','gmail',MISSING.source],status:['source'],attention:['background']});
+assert.deepEqual(filterRecords(rows,{include:{source:['asana']}},universe).map(r=>r.id),['source:a1']);
+assert.deepEqual(filterRecords(rows,{include:{source:['gmail']}},universe).map(r=>r.id),['source:g1']);
+assert.deepEqual(filterRecords(rows,{include:{owner:['y']}},universe).map(r=>r.id),['source:a1']);
+assert.deepEqual(normalizeFilterState({include:{source:['asana']}},universe).include.source,['asana']);
+console.log('intelligence-model.test.mjs: all tests passed');
