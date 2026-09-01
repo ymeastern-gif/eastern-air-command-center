@@ -66,6 +66,9 @@ export function buildCanonicalModel(raw, currentUserId) {
     const categoryId = m.category_id_override || m.category_override || item.category_id || item.category || null;
     const due = m.due_override || item.due_at || null;
     const followUp = m.follow_up_at || null;
+    const floor = m.floor_override || item.floor || null;
+    const system = m.system_override || item.system_name || null;
+    const equipment = m.equipment_override || null;
     const explicitManagement = !!(
       item.origin === 'command_center' ||
       sourceSystems.includes('todoist') ||
@@ -96,12 +99,13 @@ export function buildCanonicalModel(raw, currentUserId) {
       projectName: project?.name ?? null,
       category: categoryId,
       categoryName: category?.name ?? categoryId,
-      floor: item.floor || null,
-      system: item.system_name || null,
-      equipment: null,
+      floor,
+      system,
+      equipment,
       priority: m.priority_override || item.priority || 'medium',
       status: m.status || 'inbox',
       attentionState,
+      attention: attentionState,
       due,
       followUp,
       waitingOn: m.waiting_on || null,
