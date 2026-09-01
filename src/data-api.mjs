@@ -60,6 +60,12 @@ export function createDataApi(client, workspaceId) {
     return client.rpc('assign_item',{p_item_id:itemId,p_person_id:personId,p_note:note||null,p_keep_watching:!!keepWatching});
   }
 
+  async function clearAssignment(itemId, userId) {
+    const a=await client.from('item_assignees').update({active:false}).eq('item_id',itemId).eq('active',true);
+    if (a.error) return a;
+    return saveManagement(itemId,{current_owner_person_id:null,management_origin:'user'},userId);
+  }
+
   async function setWatching(itemId, userId, watching) {
     if (watching) return client.from('item_watchers').upsert({item_id:itemId,user_id:userId},{onConflict:'user_id,item_id'});
     return client.from('item_watchers').delete().eq('item_id',itemId).eq('user_id',userId);
@@ -106,5 +112,5 @@ export function createDataApi(client, workspaceId) {
     return {data:item,error:null};
   }
 
-  return {loadWorkspace,getMembership,saveManagement,assignItem,setWatching,savePersonalPreference,loadItemDetail,addComment,saveUserSettings,createSavedView,deleteSavedView,createCommandItem};
+  return {loadWorkspace,getMembership,saveManagement,assignItem,clearAssignment,setWatching,savePersonalPreference,loadItemDetail,addComment,saveUserSettings,createSavedView,deleteSavedView,createCommandItem};
 }
