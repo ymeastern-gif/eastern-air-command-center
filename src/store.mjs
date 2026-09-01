@@ -7,7 +7,7 @@ const SOURCE_OPTIONS=['asana','gmail','todoist','procore','google_drive','drive'
 
 export function createStore() {
   let state={
-    user:null,member:null,raw:null,records:[],schedule:[],maps:{},errors:[],page:'today',projectScope:'all',viewState:{filters:{search:'',include:{},exclude:{},date:{}}},universe:{},scheduleUniverse:{},selectedItemId:null,loading:true,
+    user:null,member:null,raw:null,records:[],schedule:[],sourceFilterRecords:[],changeFilterRecords:[],maps:{},errors:[],page:'today',projectScope:'all',viewState:{filters:{search:'',include:{},exclude:{},date:{}}},universe:{},scheduleUniverse:{},sourceUniverse:{},changeUniverse:{},selectedItemId:null,loading:true,
   };
   const listeners=new Set();
   const get=()=>state;
@@ -34,6 +34,7 @@ export function createStore() {
       tag:[MISSING.tag],
     };
     const universe=buildUniverse(records,configured);
+
     const scheduleRecords=schedule.map(m=>({
       ...m,
       source:m.sourceSystem?[m.sourceSystem]:[],
@@ -49,7 +50,50 @@ export function createStore() {
       confidence:['confirmed','source_says','calculated','inferred','needs_verification'],
       status:[],
     });
-    state={...state,records,schedule,maps,universe,scheduleUniverse};
+
+    const sourceFilterRecords=(state.raw.sourceRecords??[]).map(s=>({
+      id:s.id,
+      project:s.project_id||null,
+      source:s.source_system?[s.source_system]:[],
+      confidence:'source_says',
+      sourceState:s.is_historical?'historical':'current',
+      title:s.title||'',
+      description:s.body||'',
+      searchText:[s.source_ref,s.source_system],
+      sourceUpdated:s.source_updated_at||null,
+    }));
+    const sourceUniverse=buildUniverse(sourceFilterRecords,{
+      project:[...(state.raw.projects??[]).map(p=>p.id)],
+      source:[...SOURCE_OPTIONS,MISSING.source],
+      confidence:['source_says'],
+      sourceState:['current','historical'],
+    });
+
+    const changeFilterRecords=(state.raw.activityEvents??[]).map(e=>{
+      const sr=e.source_record_id?maps.sources[e.source_record_id]:null;
+      return {
+        id:e.id,
+        project:e.project_id||null,
+        source:sr?.source_system?[sr.source_system]:[],
+        confidence:e.confidence||'source_says',
+        changeType:e.event_type||'change',
+        actor:e.actor_person_id||MISSING.owner,
+        meaningful:e.meaningful?'meaningful':'routine',
+        title:e.summary||'',
+        description:e.summary||'',
+        happenedAt:e.happened_at||null,
+      };
+    });
+    const changeUniverse=buildUniverse(changeFilterRecords,{
+      project:[...(state.raw.projects??[]).map(p=>p.id)],
+      source:[...SOURCE_OPTIONS,MISSING.source],
+      confidence:['confirmed','source_says','calculated','inferred','needs_verification'],
+      changeType:[],
+      actor:[...(state.raw.people??[]).map(p=>p.id),MISSING.owner],
+      meaningful:['meaningful','routine'],
+    });
+
+    state={...state,records,schedule,sourceFilterRecords,changeFilterRecords,maps,universe,scheduleUniverse,sourceUniverse,changeUniverse};
   }
 
   function load({user,member,raw,errors=[]}) {state={...state,user,member,raw,errors,loading:false};rebuildDerived();emit();}
