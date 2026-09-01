@@ -30,10 +30,21 @@ export function createDataApi(client, workspaceId) {
       safe('profiles', client.from('profiles').select('id,display_name,email')),
       safe('members', client.from('workspace_members').select('*').eq('workspace_id',workspaceId)),
       safe('notifications', client.from('notifications').select('*').eq('workspace_id',workspaceId).eq('user_id',userId).order('created_at',{ascending:false}).limit(100)),
+      safe('sourceEntities', client.from('source_entities').select('*')),
+      safe('entityAliases', client.from('entity_aliases').select('*').eq('workspace_id',workspaceId).order('entity_type').order('alias')),
+      safe('topics', client.from('topics').select('*').eq('workspace_id',workspaceId).order('last_source_at',{ascending:false,nullsFirst:false})),
+      safe('topicSources', client.from('topic_sources').select('*')),
+      safe('commitments', client.from('commitments').select('*').eq('workspace_id',workspaceId).order('due_at',{ascending:true,nullsFirst:false})),
+      safe('actionSuggestions', client.from('action_suggestions').select('*').eq('workspace_id',workspaceId).order('created_at',{ascending:false})),
+      safe('sourceDeltas', client.from('source_deltas').select('*').eq('workspace_id',workspaceId).order('happened_at',{ascending:false}).limit(1000)),
+      safe('sourceConfigs', client.from('project_source_configs').select('*').eq('workspace_id',workspaceId).order('project_id').order('source_system')),
+      safe('taxonomyRules', client.from('project_taxonomy_rules').select('*').eq('workspace_id',workspaceId).eq('active',true).order('sort_order')),
+      safe('seenState', client.from('user_seen_state').select('*').eq('workspace_id',workspaceId).eq('user_id',userId)),
+      safe('syncRuns', client.from('sync_runs').select('*').eq('workspace_id',workspaceId).order('started_at',{ascending:false}).limit(100)),
     ]);
 
     const raw = {
-      projects:[],categories:[],people:[],items:[],management:[],assignments:[],watchers:[],userItemPreferences:[],itemSources:[],sourceRecords:[],tags:[],itemTags:[],scheduleMilestones:[],activityEvents:[],savedViews:[],userPreferences:null,profiles:[],members:[],notifications:[],
+      projects:[],categories:[],people:[],items:[],management:[],assignments:[],watchers:[],userItemPreferences:[],itemSources:[],sourceRecords:[],tags:[],itemTags:[],scheduleMilestones:[],activityEvents:[],savedViews:[],userPreferences:null,profiles:[],members:[],notifications:[],sourceEntities:[],entityAliases:[],topics:[],topicSources:[],commitments:[],actionSuggestions:[],sourceDeltas:[],sourceConfigs:[],taxonomyRules:[],seenState:[],syncRuns:[],
     };
     const errors=[];
     for (const q of queries) {
@@ -127,15 +138,41 @@ export function createDataApi(client, workspaceId) {
     return client.from('saved_views').delete().eq('id',id).eq('owner_user_id',userId);
   }
 
-  async function createCommandItem(userId,{projectId,title,description=null,categoryId='general',priority='medium',due=null,ownerPersonId=null}) {
+  async function createCommandItem(userId,{projectId,title,description=null,categoryId='general',priority='medium',due=null,ownerPersonId=null,sourceRecordId=null}) {
     const {data:item,error}=await client.from('items').insert({workspace_id:workspaceId,project_id:projectId,title,description,category_id:categoryId,category:categoryId,priority,due_at:due,origin:'command_center',confidence:'confirmed',created_by:userId}).select().single();
     if (error) return {data:null,error};
     const mgmt={item_id:item.id,workspace_id:workspaceId,status:'inbox',attention_state:'action',management_origin:'user',promoted_at:new Date().toISOString(),promoted_by:userId,updated_by:userId};
     const result=await client.from('item_management').insert(mgmt);
     if (result.error) return {data:item,error:result.error};
+    if (sourceRecordId) {
+      const link=await client.from('item_sources').upsert({item_id:item.id,source_record_id:sourceRecordId,is_primary:true},{onConflict:'item_id,source_record_id'});
+      if (link.error) return {data:item,error:link.error};
+    }
     if (ownerPersonId) await assignItem(item.id,ownerPersonId,'Assigned when created',false);
     return {data:item,error:null};
   }
 
-  return {loadWorkspace,getMembership,saveManagement,assignItem,clearAssignment,setWatching,setItemTags,savePersonalPreference,loadItemDetail,addComment,saveUserSettings,createSavedView,deleteSavedView,createCommandItem};
+  async function acceptSuggestion(id,userId) {
+    const {data:s,error}=await client.from('action_suggestions').select('*').eq('id',id).single();
+    if(error)return {error};
+    const created=await createCommandItem(userId,{projectId:s.project_id,title:s.suggested_action||s.title,description:`Suggested by Command Center brain.\n\nReason: ${s.reason}`,categoryId:'follow-up',priority:s.priority||'medium',due:s.suggested_due_at?String(s.suggested_due_at).slice(0,10):null,ownerPersonId:s.suggested_owner_person_id||null,sourceRecordId:s.source_record_id||null});
+    if(created.error)return created;
+    const upd=await client.from('action_suggestions').update({state:'accepted',decided_at:new Date().toISOString(),decided_by:userId}).eq('id',id);
+    if(upd.error)return {data:created.data,error:upd.error};
+    return {data:created.data,error:null};
+  }
+
+  async function dismissSuggestion(id,userId) {
+    return client.from('action_suggestions').update({state:'dismissed',decided_at:new Date().toISOString(),decided_by:userId}).eq('id',id);
+  }
+
+  async function updateCommitmentStatus(id,status) {
+    return client.from('commitments').update({status,resolved_at:status==='resolved'?new Date().toISOString():null,updated_at:new Date().toISOString()}).eq('id',id);
+  }
+
+  async function markSeen(userId,scopeKey,at=new Date().toISOString()) {
+    return client.from('user_seen_state').upsert({user_id:userId,workspace_id:workspaceId,scope_key:scopeKey,last_seen_at:at},{onConflict:'user_id,workspace_id,scope_key'}).select().single();
+  }
+
+  return {loadWorkspace,getMembership,saveManagement,assignItem,clearAssignment,setWatching,setItemTags,savePersonalPreference,loadItemDetail,addComment,saveUserSettings,createSavedView,deleteSavedView,createCommandItem,acceptSuggestion,dismissSuggestion,updateCommitmentStatus,markSeen};
 }
