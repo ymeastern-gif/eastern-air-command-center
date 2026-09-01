@@ -17,7 +17,7 @@ export function createStore(){
     const combinedRecords=[...records,...intelligenceRecords];
     const maps=canonicalMaps(state.raw);
     const schedule=(state.raw.scheduleMilestones??[]).map(r=>normalizeMilestone(r,maps.projects,maps.sources));
-    const brainDocuments=buildBrainDocuments({records,intelligenceRecords,schedule,topics:state.raw.topics??[],commitments:state.raw.commitments??[],suggestions:(state.raw.actionSuggestions??[]).filter(s=>s.state==='pending'),sourceEntities:state.raw.sourceEntities??[]});
+    const brainDocuments=buildBrainDocuments({records,intelligenceRecords,schedule,topics:state.raw.topics??[],commitments:state.raw.commitments??[],suggestions:(state.raw.actionSuggestions??[]).filter(s=>s.state==='pending'),procurement:state.raw.procurementItems??[],sourceEntities:state.raw.sourceEntities??[]});
     const configured={project:(state.raw.projects??[]).map(p=>p.id),owner:[...(state.raw.people??[]).map(p=>p.id),MISSING.owner],category:[...(state.raw.categories??[]).map(c=>c.id),MISSING.category],attention:ATTENTION_OPTIONS,status:[...STATUS_OPTIONS,'source'],priority:PRIORITY_OPTIONS,source:[...SOURCE_OPTIONS,MISSING.source],floor:[MISSING.floor],system:[MISSING.system],equipment:[MISSING.equipment],tag:[MISSING.tag]};
     const universe=buildUniverse(records,configured);const combinedUniverse=buildUniverse(combinedRecords,configured);
     const scheduleRecords=schedule.map(m=>({...m,source:m.sourceSystem?[m.sourceSystem]:[],scheduleCategory:m.category,attention:['delayed','at_risk'].includes(m.status)?'risk':'background'}));
